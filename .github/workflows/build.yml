@@ -22,7 +22,7 @@ jobs:
         architecture: i686
 
     - name: 编译 32位 DLL
-      run: gcc -shared -m32 -o sepa_plugin.dll sepa_plugin.c -s -O2 -Wl,--kill-at sepa_plugin.def
+      run: gcc -shared -m32 -o sepa_plugin.dll sepa_plugin.c -s -O2
 
     - name: 上传产物
       uses: actions/upload-artifact@v4
