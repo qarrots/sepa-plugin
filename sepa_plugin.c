@@ -1,4 +1,4 @@
-/* sepa_plugin.c — SEPA选股DLL (完整版) */
+/* sepa_plugin.c - SEPA选股DLL (32位版) */
 
 #include <windows.h>
 #include <string.h>
@@ -36,6 +36,7 @@ typedef struct {
 #pragma pack(pop)
 
 #define MAX_STOCKS 5000
+
 typedef struct {
     char  code[12];
     float rs;
@@ -64,46 +65,49 @@ static float LO(STKDATA* d, int i) { return PRICE(d[i].m_dwLow); }
 static float VO(STKDATA* d, int i) { return (float)d[i].m_dwVolume; }
 
 static float MA(STKDATA* d, int pos, int n) {
-    if (pos < n - 1) return 0;
+    int i;
     float s = 0;
-    for (int i = 0; i < n; i++) s += CL(d, pos - i);
+    if (pos < n - 1) return 0;
+    for (i = 0; i < n; i++) s += CL(d, pos - i);
     return s / n;
 }
 
 static float VMA(STKDATA* d, int pos, int n) {
-    if (pos < n - 1) return 0;
+    int i;
     float s = 0;
-    for (int i = 0; i < n; i++) s += VO(d, pos - i);
+    if (pos < n - 1) return 0;
+    for (i = 0; i < n; i++) s += VO(d, pos - i);
     return s / n;
 }
 
 static float HHV(STKDATA* d, int pos, int n) {
+    int i;
     int start = (pos >= n - 1) ? pos - n + 1 : 0;
     float hi = 0;
-    for (int i = start; i <= pos; i++)
+    for (i = start; i <= pos; i++)
         if (HI(d, i) > hi) hi = HI(d, i);
     return hi;
 }
 
 static float LLV(STKDATA* d, int pos, int n) {
+    int i;
     int start = (pos >= n - 1) ? pos - n + 1 : 0;
     float lo = 999999;
-    for (int i = start; i <= pos; i++)
+    for (i = start; i <= pos; i++)
         if (LO(d, i) < lo) lo = LO(d, i);
     return lo;
 }
 
 static StockRec* GetRec(const char* code) {
     int i;
+    StockRec* r;
     for (i = 0; i < g_count; i++)
         if (strcmp(g_data[i].code, code) == 0) return &g_data[i];
     if (g_count >= MAX_STOCKS) return NULL;
-    {
-        StockRec* r = &g_data[g_count++];
-        memset(r, 0, sizeof(StockRec));
-        strncpy(r->code, code, 10);
-        return r;
-    }
+    r = &g_data[g_count++];
+    memset(r, 0, sizeof(StockRec));
+    strncpy(r->code, code, 10);
+    return r;
 }
 
 static StockRec* FindRec(const char* code) {
@@ -132,9 +136,9 @@ static void CalcStock(StockRec* r, STKDATA* d, int n) {
     L = n - 1;
     C = CL(d, L);
 
-    ma50  = MA(d, L, 50);
-    ma150 = MA(d, L, 150);
-    ma200 = MA(d, L, 200);
+    ma50   = MA(d, L, 50);
+    ma150  = MA(d, L, 150);
+    ma200  = MA(d, L, 200);
     ma200p = (n >= 222) ? MA(d, L - 22, 200) : 0;
 
     if (C > ma150 && C > ma200) cnt++;
@@ -164,56 +168,57 @@ static void CalcStock(StockRec* r, STKDATA* d, int n) {
     vcp_flag = (a20 < a40 && a40 < a60) && (v10 < v30 && v30 < v50);
     r->vcp = vcp_flag;
 
-    piv = HHV(d, L - 5, 55);
+    piv = HHV(d, (L - 5 > 0 ? L - 5 : 0), 55);
     dist = (C / (piv + 0.001f) - 1) * 100;
     r->breakout = (C > piv) && (VO(d, L) > v50);
     r->near_pivot = (dist >= 0 && dist <= 3);
 
-    /* 评分 */
-    if (cnt == 7 && r->rs > 0.30f) r->trend_score = 35;
+    if (cnt == 7 && r->rs > 0.30f)      r->trend_score = 35;
     else if (cnt == 7 && r->rs > 0.15f) r->trend_score = 27;
-    else if (cnt >= 5) r->trend_score = 20;
-    else if (cnt >= 4) r->trend_score = 10;
-    else r->trend_score = 0;
+    else if (cnt >= 5)                  r->trend_score = 20;
+    else if (cnt >= 4)                  r->trend_score = 10;
+    else                                r->trend_score = 0;
 
-    if (r->rs > 0.50f) r->rs_score = 25;
-    else if (r->rs > 0.30f) r->rs_score = 20;
-    else if (r->rs > 0.15f) r->rs_score = 15;
-    else if (r->rs > 0) r->rs_score = 10;
-    else if (r->rs > -0.1f) r->rs_score = 5;
-    else r->rs_score = 0;
+    if (r->rs > 0.50f)       r->rs_score = 25;
+    else if (r->rs > 0.30f)  r->rs_score = 20;
+    else if (r->rs > 0.15f)  r->rs_score = 15;
+    else if (r->rs > 0)      r->rs_score = 10;
+    else if (r->rs > -0.1f)  r->rs_score = 5;
+    else                     r->rs_score = 0;
 
     r->vcp_score = vcp_flag ? 25 : ((a20 < a40 || v10 < v30) ? 12 : 0);
 
     if (r->breakout && VO(d, L) > v50 * 1.5f) r->pivot_score = 15;
-    else if (r->breakout) r->pivot_score = 12;
-    else if (r->near_pivot) r->pivot_score = 8;
-    else if (dist > -5) r->pivot_score = 4;
-    else r->pivot_score = 0;
+    else if (r->breakout)                       r->pivot_score = 12;
+    else if (r->near_pivot)                     r->pivot_score = 8;
+    else if (dist > -5)                         r->pivot_score = 4;
+    else                                        r->pivot_score = 0;
 
     r->total_score = r->trend_score + r->rs_score
                    + r->pivot_score + r->vcp_score;
     r->valid = 1;
 }
 
-__declspec(dllexport) BOOL WINAPI TDX_SEPA_RESET(CALCINFO* p) {
+__declspec(dllexport) BOOL __cdecl TDX_SEPA_RESET(CALCINFO* p) {
     g_count = 0;
     g_ranked = FALSE;
+    memset(g_data, 0, sizeof(g_data));
     return TRUE;
 }
 
-__declspec(dllexport) BOOL WINAPI TDX_SEPA_SCAN(CALCINFO* p) {
+__declspec(dllexport) BOOL __cdecl TDX_SEPA_SCAN(CALCINFO* p) {
     StockRec* r;
     if (!p || !p->m_pData || p->m_nNumData < 250) return FALSE;
     if (p->m_strCode && strstr(p->m_strCode, "ST")) return FALSE;
     r = GetRec(p->m_strCode);
     if (!r) return FALSE;
     CalcStock(r, p->m_pData, p->m_nNumData);
-    if (p->m_pfOut1) p->m_pfOut1[p->m_nNumData - 1] = r->rs;
+    if (p->m_pfOut1)
+        p->m_pfOut1[p->m_nNumData - 1] = r->rs;
     return TRUE;
 }
 
-__declspec(dllexport) BOOL WINAPI TDX_SEPA_RANK(CALCINFO* p) {
+__declspec(dllexport) BOOL __cdecl TDX_SEPA_RANK(CALCINFO* p) {
     int i;
     if (g_count == 0) return FALSE;
     qsort(g_data, g_count, sizeof(StockRec), CmpRS);
@@ -223,31 +228,32 @@ __declspec(dllexport) BOOL WINAPI TDX_SEPA_RANK(CALCINFO* p) {
     return TRUE;
 }
 
-__declspec(dllexport) BOOL WINAPI TDX_SEPA_SEL(CALCINFO* p) {
+__declspec(dllexport) BOOL __cdecl TDX_SEPA_SEL(CALCINFO* p) {
     StockRec* r;
     int L;
     if (!p || !p->m_pfOut1) return FALSE;
     L = p->m_nNumData - 1;
     r = FindRec(p->m_strCode);
     if (!r || !r->valid) {
-        if (p->m_pfOut1) p->m_pfOut1[L] = 0;
+        p->m_pfOut1[L] = 0;
         if (p->m_pfOut2) p->m_pfOut2[L] = 0;
         if (p->m_pfOut3) p->m_pfOut3[L] = 0;
         return FALSE;
     }
-    if (p->m_pfOut1) p->m_pfOut1[L] = (float)r->total_score;
+    p->m_pfOut1[L] = (float)r->total_score;
     if (p->m_pfOut2) p->m_pfOut2[L] = r->rs_rank;
     if (p->m_pfOut3) p->m_pfOut3[L] =
         (r->trend_count >= 6 && r->rs_rank >= 50.0f) ? 1.0f : 0.0f;
     return TRUE;
 }
 
-__declspec(dllexport) BOOL WINAPI TDX_TEST(CALCINFO* p) {
+__declspec(dllexport) BOOL __cdecl TDX_TEST(CALCINFO* p) {
     if (p && p->m_pfOut1)
         p->m_pfOut1[p->m_nNumData - 1] = 42.0f;
     return TRUE;
 }
 
 BOOL APIENTRY DllMain(HMODULE h, DWORD reason, LPVOID lp) {
+    (void)h; (void)reason; (void)lp;
     return TRUE;
 }
