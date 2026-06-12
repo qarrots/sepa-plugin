@@ -13,11 +13,13 @@ jobs:
     - name: 检出代码
       uses: actions/checkout@v4
 
-    - name: 安装 MinGW
+    - name: 安装 MinGW (32位)
       uses: bwoodsend/setup-winlibs-action@v1
+      with:
+        architecture: i686
 
-    - name: 编译 DLL
-      run: gcc -shared -o sepa_plugin.dll sepa_plugin.c -s -O2
+    - name: 编译 32位 DLL
+      run: gcc -shared -m32 -o sepa_plugin.dll sepa_plugin.c -s -O2
 
     - name: 验证文件
       run: dir sepa_plugin.dll
@@ -25,5 +27,5 @@ jobs:
     - name: 上传产物
       uses: actions/upload-artifact@v4
       with:
-        name: sepa-plugin-dll
+        name: sepa-plugin-dll-32bit
         path: sepa_plugin.dll
