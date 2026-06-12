@@ -8,6 +8,9 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    defaults:
+      run:
+        shell: cmd
 
     steps:
     - name: 检出代码
@@ -19,15 +22,7 @@ jobs:
         architecture: i686
 
     - name: 编译 32位 DLL
-      run: >
-        gcc -shared -m32 -o sepa_plugin.dll sepa_plugin.c
-        -s -O2
-        -Wl,--kill-at
-        sepa_plugin.def
-
-    - name: 验证导出函数
-      run: |
-        dumpbin /exports sepa_plugin.dll || objdump -p sepa_plugin.dll
+      run: gcc -shared -m32 -o sepa_plugin.dll sepa_plugin.c -s -O2 -Wl,--kill-at sepa_plugin.def
 
     - name: 上传产物
       uses: actions/upload-artifact@v4
