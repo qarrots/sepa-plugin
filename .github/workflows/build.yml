@@ -1,0 +1,31 @@
+name: Build SEPA DLL
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:    # 允许手动触发
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+
+    - name: 安装 MinGW
+      uses: bwoodsend/setup-winlibs-action@v1
+      with:
+        with_gcc: true
+
+    - name: 编译 DLL
+      run: gcc -shared -o sepa_plugin.dll sepa_plugin.c -s -O2
+
+    - name: 验证文件
+      run: dir sepa_plugin.dll
+
+    - name: 上传产物
+      uses: actions/upload-artifact@v4
+      with:
+        name: sepa-plugin-dll
+        path: sepa_plugin.dll
